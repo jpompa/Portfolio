@@ -1,0 +1,262 @@
+---
+title: "Bellabeat Smart Device Analysis using R"
+author: "Jesus Pompa"
+date: "2022-11-06"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      fig.align = 'center',
+                      out.width = "90%",
+                      warning = FALSE,
+                      tidy = FALSE)
+```
+
+# About
+
+Urška Sršen and Sando Mur founded Bellabeat, a high-tech manufacturer of health-focused products for women. Bellabeat is a small company that has the potential of becoming a large player in the smart-device market. Bellabeat collects data on actvity, sleep, stress and reproductive health to empower women with their own health and habits.
+
+# Business Task
+
+Bellabeat's marketing team believes that analyzing smart fitness device data could help unlock new growth opportunities for the company. Their team would like advice and recommendations for growth based on trends of non-Bellabeat smart devices that could be applicable for their own products.
+
+# Questions for Analysis
+
+1.  What are some trends in smart device usage?
+2.  How could these trends apply to Bellabeat customers?
+3.  How could these trends help influence Bellabeat marketing strategy?
+
+# Spreadsheet, SQL or R for Analysis?
+
+We will be analyzing [FitBit Fitness Tracker Data](https://www.kaggle.com/datasets/arashnic/fitbit). This dataset contains personal fitness data from thirty Fibit users. These users consented to the submission of their personal data.
+
+With a quick look at the csv file, there were some tables that had more than 1 Million rows that makes it a bit more complicated to do analysis in spreadsheets. Between R and SQL, I decided to use R for easy data formatting and presentation.
+
+# Installing and Loading R Packages
+
+```{r Installing, eval = FALSE}
+install.packages("tidyverse")
+install.packages("lubridate")
+install.packages("dplyr")
+install.packages("ggplot2")
+install.packages("tidyr")
+install.packages("hms")
+```
+
+```{r Loading Library}
+library(tidyverse)
+library(lubridate)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(hms)
+```
+
+# Loading the Data
+
+All csv files were imported into RStudio Cloud and loaded below.
+
+```{r}
+daily_activity <- read.csv("dailyActivity_merged.csv")
+daily_calories <- read.csv("dailyCalories_merged.csv")
+daily_intensity <- read.csv("dailyIntensities_merged.csv")
+daily_steps <- read.csv("dailySteps_merged.csv")
+heartrate_seconds <- read.csv("heartrate_seconds_merged.csv")
+hourly_calories <- read.csv("hourlyCalories_merged.csv")
+hourly_intensities <- read.csv("hourlyIntensities_merged.csv")
+hourly_steps <- read.csv("hourlySteps_merged.csv")
+sleep_day <- read.csv("sleepDay_merged.csv")
+weight_log_info <- read.csv("weightLogInfo_merged.csv")
+```
+
+# Summary of files
+
+```{r, collapse=TRUE}
+glimpse(daily_activity)
+```
+
+Here we can see a quick summary of information of the file for daily activity. We notice that there are 15 cloumns with their data type. With a quick look, we can see that "ActivityDate" is in a character data type and must be changed to appropriately analyze this specific table.\
+
+Lets take a look at another file.\
+
+```{r, collapse=TRUE}
+glimpse(daily_calories)
+```
+
+Here we can see "Id" column again and "ActivityDay" having character data type again.
+
+# Formatting the data character type into a date format
+
+```{r}
+#Daily Activity 
+daily_activity$ActivityDate <- mdy(daily_activity$ActivityDate)
+
+#Daily Calories
+daily_calories$ActivityDay <- mdy(daily_calories$ActivityDay)
+
+#Daily Intensities
+daily_intensity$ActivityDay <- mdy(daily_intensity$ActivityDay)
+
+#Daily Steps
+daily_steps$ActivityDay <- mdy(daily_steps$ActivityDay)
+
+#Heartrate Seconds 
+heartrate_seconds$Time <- parse_date_time(heartrate_seconds$Time, "%m/%d%y %I:%M:%S %p")
+
+#Hourly Calories
+hourly_calories$ActivityHour <- parse_date_time(hourly_calories$ActivityHour, "%m/%d%y %I:%M:%S %p")
+
+#Hourly Intensities
+hourly_intensities$ActivityHour <- parse_date_time(hourly_intensities$ActivityHour, "%m/%d%y %I:%M:%S %p")
+
+#Hourly Steps
+hourly_steps$ActivityHour <- parse_date_time(hourly_steps$ActivityHour, "%m/%d%y %I:%M:%S %p")
+
+#Sleep Day
+sleep_day$SleepDay <- parse_date_time(sleep_day$SleepDay, "%m/%d%y %I:%M:%S %p")
+
+#Weight Log Info
+weight_log_info$Date <- parse_date_time(weight_log_info$Date, "%m/%d%y %I:%M:%S %p")
+```
+
+Lets check if is now formatted correctly with two different tables to see.
+
+```{r}
+data.class(daily_activity$ActivityDate)
+daily_activity$ActivityDate[1:2]
+
+data.class(heartrate_seconds$Time)
+heartrate_seconds$Time[1:2]
+```
+
+With the columns data types now corrected. We can review the data.
+
+# Summary of Data
+
+With a glimpse of each table, we see that they all have "Id" in common. This is the distinct identifier for each user.
+
+```{r results='asis'}
+n_distinct(daily_activity$Id)
+n_distinct(daily_calories$Id)
+n_distinct(daily_intensity$Id)
+n_distinct(daily_steps$Id)
+n_distinct(heartrate_seconds$Id)
+n_distinct(hourly_calories$Id)
+n_distinct(hourly_intensities$Id)
+n_distinct(hourly_steps$Id)
+n_distinct(sleep_day$Id)
+n_distinct(weight_log_info$Id)
+
+```
+
+We notice that for most of these tables there are 33 distinct users. With this information we will exclude the data from the "heartrate_seconds" and "weight_log_info" as the amount of users that participated in those sections or features is not a good pool sample for the analysis. We will keep the sleep_day with its 24 users but keep in mind that the confidence level at 95% contains a margin error of 10.61%.
+
+### Daily Activity:
+
+```{r}
+daily_activity %>% 
+  select(TotalSteps,
+         TotalDistance,
+         VeryActiveMinutes,
+         FairlyActiveMinutes,
+         LightlyActiveMinutes,
+         SedentaryMinutes,
+         Calories) %>% 
+  summary()
+```
+
+### Sleep Day:
+
+```{r}
+sleep_day %>% 
+  select(TotalSleepRecords,
+         TotalMinutesAsleep,
+         TotalTimeInBed) %>% 
+  summary()
+```
+
+### Hour Intensities:
+
+```{r}
+hourly_intensities %>% 
+  select(ActivityHour,
+         TotalIntensity,
+         AverageIntensity) %>% 
+  summary()
+```
+
+By looking at the information above, we make the following observations:
+
+-   The participants are lightly active averaging around 192 minutes while very active is 21 minutes.
+-   Average sedentary time is 991.2 minutes or roughly 16.5 hours.
+-   Average of 1 time of sleep for 419.5 minutes or roughly 7 hours asleep.
+-   Average calories expended in an activity is 2304 kcal
+-   The data range is from April 12, 2016 to May 12, 2016. All the information we see is for a time span of a month.
+
+## Merging datasets
+
+```{r}
+combined_data <- merge(daily_activity, sleep_day, by = 'Id')
+head(combined_data)
+n_distinct(combined_data$Id)
+```
+
+## Visualization
+
+```{r}
+ggplot(data = combined_data, aes(x = TotalSteps, y = Calories)) +
+  geom_point() + geom_smooth(method = lm) + labs(title = "Total Steps Vs Calories Expended", x = "Total Steps", y = "Calories")
+```
+
+Here we can make some quick observations based on the data we have. Shown in the graph is a positive correlation of total steps and calories. In other words, he more steps you take the more calories you burn.
+
+```{r}
+ggplot(data = combined_data, aes(x = TotalSteps, y = SedentaryMinutes)) +
+  geom_point() + geom_smooth(method = lm) + labs(title = "Total Steps vs Time Sitting", x= "Total Steps", y= "Sedentary Minutes")
+```
+
+In this graph, we are comparing the total sedimentary time to the total steps taken. There is a negative correlation between the variables. In other words, the more time you are sitting the less steps you take. We can see that the participants spend more time sitting down than getting their steps in.
+
+```{r}
+ggplot(data = combined_data, aes(x = TotalMinutesAsleep, y = TotalTimeInBed, color = TotalSleepRecords)) + facet_grid(~TotalSleepRecords) +
+  geom_point() + labs(title = "Total Minutes Asleep Vs Total Time in Bed", x= "Total Minutes Asleep", y="Total Minutes in Bed") + geom_vline(xintercept = 419.5, color = "red", linetype = "dashed") + annotate("text", label = "7 Hours", x = 200, y = 800, color = "black", size = 3)
+```
+
+Here I have separated the Total Minutes Asleep vs. Total Time in Bed by the number of sleep cycles in a day. The red dashed line is the average time, 419.5 Minutes or roughly 7 hours, that the participants are usually asleep for. Here we notice that participants who documented one sleep cycle have more plot points in the left side of the average, while participants with twosleep cycles have more plot points on the right side of the red line and lastly the participants who documented three sleep cycles slept more than the average.
+
+```{r}
+#Used the hms library to extract just the time from the datetime
+hourly_intensities$ActivityHour <- as_hms(hourly_intensities$ActivityHour)
+
+#Filtered the data to group by ActivityHour to easily analyze for plotting
+filtered_data <- hourly_intensities %>% 
+  group_by(ActivityHour) %>% 
+  summarise(avg_total_intensity = mean(TotalIntensity))
+
+#For plotting
+ggplot(data = filtered_data, aes(x=ActivityHour, y= avg_total_intensity)) + geom_histogram(stat = "identity") + labs(y = "Average Total Intensity", x = "Daily Hour", title = "Time Most Active In a Day")
+```
+
+In the graph above we can visualize the time of day with the average total intensity of activity between the participants. This graph reflects multiple days of observation. On average participants are most active during 12pm -2pm and 5pm to 7pm.
+
+## Conclusion
+
+Through analyzing the FitBit Fitness Tracker Data we have made the following observations with the limited information we have.
+
+The data has a range from April 12, 2016 to May 12, 2016. We have 33 participants that consented for the use of their data. Their users are more lightly active and averaging around 192 minutes per day while the more active users average around 21 minutes per day. The average sedentary time of participants is 16.5 hours and sleep on average 1 time a day for about 7 hours. The participants are more active around 12pm to 2pm and 5pm to 7pm.
+
+If we had more information about age, weight, and height, a more detailed analysis could be constructed. However, we will merely talk about women in general as the target audience.
+
+# Suggestions for Bellabeat
+
+There are a lot of smart devices in today's market that document health data for the betterment of their users. If Bellabeat wants to be a contender with the big players they need target areas in this data that can be applicable to their own users. For example, we know that the users are more active around 12pm to 2pm and 5pm to 7pm. Bellabeat could push for timed notifications or even create a personalized program that caters to the user's schedule to help and remind them to be more active.
+
+The [CDC](https://www.cdc.gov/physicalactivity/basics/adults/index.htm) recommends an average of 150 minutes of exercise per week and twice a week. Bellabeat's target audience is for empowering women, what they could do is create workout programs that appeal to their audience. Having more options for exercises may entice more women to reduce the amount they are sitting and promote their health and well being. Exercises like workouts, stretching, cardio, yoga, and meditations are examples of features that could be implemented in their app.
+
+Articles of healthy food alternatives and recipes can be a great feature for your target audience. Health articles about women's health can also help empower women. Topics such as breast cancer awareness, mental health, stress, and daily exercise activity can keep women informed.
+
+Smart devices also need to look appealing in today's fashion. I would not like wearing a huge device that seems out of place on my body to document data. Making the smart device to fit people's clothing is great way to have consistent use of the program. The more time a person has the device on them, the higher the chance that they could be notified of their health and progression.
